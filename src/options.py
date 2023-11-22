@@ -47,7 +47,7 @@ def args_parser():
                         of dataset")
     parser.add_argument('--num_classes', type=int, default=10, help="number \
                         of classes")
-    parser.add_argument('--gpu', type=int, default=0, help="To use cuda, set \
+    parser.add_argument('--gpu', type=int, default=-1, help="To use cuda, set \
                         to a specific GPU ID. Default set to use CPU.")
     parser.add_argument('--optimizer', type=str, default='sgd', help="type \
                         of optimizer")
@@ -59,7 +59,7 @@ def args_parser():
     parser.add_argument('--stopping_rounds', type=int, default=10,
                         help='rounds of early stopping')
     parser.add_argument('--verbose', type=int, default=1, help='verbose')
-    parser.add_argument('--seed', type=int, default=1, help='random seed')
+    parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--agg', type=str, default='att', help='whether to use attention')
     args = parser.parse_args()
     return args

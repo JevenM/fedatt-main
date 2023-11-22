@@ -33,6 +33,18 @@ python src/baseline_main.py --model=mlp --dataset=mnist --gpu=0 --epochs=10
 
 Federated experiment involves training a global model using many local models.
 
+
+### Results
+epoch: 10
+
+Dataset: MNIST
+
+| Model |    IID-Atte   | Non-IID (equal)-Atte| IID-Avg | Non-IID (equal)-Avg |
+| ----- | -----    |----            | ---  | --- |
+|  MLP  |     -    |     -          |      |     |
+|  CNN  |  97.41%  |     87.10%     |   97.20   |   78.67%  |
+
+
 * To run the federated experiment with CIFAR on CNN (IID, Aggregate: Fedavg):
 ```
 python src/federated_main.py --agg avg --model=cnn --dataset=cifar --gpu=0 --iid=1 --epochs=10
@@ -48,6 +60,26 @@ python src/federated_main.py --agg att --model=cnn --dataset=cifar --gpu=0 --iid
 * To run the same experiment under non-IID condition:
 ```
 python src/federated_main.py --agg att --model=cnn --dataset=cifar --gpu=0 --iid=0 --epochs=10
+```
+
+* To run the federated experiment with MNIST on CNN (IID, Aggregate: Attention):
+```
+python src/federated_main.py --agg att --model=cnn --dataset=mnist --gpu=0 --iid=1 --epochs=10
+```
+
+* To run the same experiment under non-IID condition:
+```
+python src/federated_main.py --agg att --model=cnn --dataset=mnist --gpu=0 --iid=0 --epochs=10
+```
+
+* To run the federated experiment with MNIST on CNN (IID, Aggregate: Fedavg):
+```
+python src/federated_main.py --agg avg --model=cnn --dataset=cifar --gpu=0 --iid=1 --epochs=10
+```
+
+* To run the same experiment under non-IID condition:
+```
+python src/federated_main.py --agg avg --model=cnn --dataset=mnist --gpu=0 --iid=0 --epochs=10
 ```
 
 You can change the default values of other parameters to simulate different conditions. Refer to the options section.

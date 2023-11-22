@@ -3,6 +3,9 @@
 # Python version: 3.6
 
 import copy
+import os
+import random
+import numpy as np
 import torch
 from torchvision import datasets, transforms
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
@@ -16,7 +19,7 @@ def get_dataset(args):
     """
 
     if args.dataset == 'cifar':
-        data_dir = '../data/cifar/'
+        data_dir = 'data/cifar/'
         apply_transform = transforms.Compose(
             [transforms.ToTensor(),
              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -42,9 +45,9 @@ def get_dataset(args):
 
     elif args.dataset == 'mnist' or 'fmnist':
         if args.dataset == 'mnist':
-            data_dir = '../data/mnist/'
+            data_dir = 'data/mnist/'
         else:
-            data_dir = '../data/fmnist/'
+            data_dir = 'data/fmnist/'
 
         apply_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -106,7 +109,8 @@ def aggregate_att(w_clients, w_server, stepsize):
         att[k] = torch.zeros(len(w_clients)).cpu()
     for k in w_next.keys():
         for i in range(0, len(w_clients)):
-            att[k][i] = torch.from_numpy(np.array(linalg.norm(w_server[k]-w_clients[i][k], ord=2)))
+            # att[k][i] = torch.from_numpy(np.array(linalg.norm(w_server[k]-w_clients[i][k], ord=2)))
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
     for k in w_next.keys():
         att[k] = F.softmax(att[k], dim=0)
     for k in w_next.keys():
@@ -117,19 +121,71 @@ def aggregate_att(w_clients, w_server, stepsize):
     return w_next
 
 
-def exp_details(args):
-    print('\nExperimental details:')
-    print(f'    Model     : {args.model}')
-    print(f'    Optimizer : {args.optimizer}')
-    print(f'    Learning  : {args.lr}')
-    print(f'    Global Rounds   : {args.epochs}\n')
+def exp_details(args, log):
+    log.info('\nExperimental details:')
+    log.info(f'    Model     : {args.model}')
+    log.info(f'    Optimizer : {args.optimizer}')
+    log.info(f'    Learning  : {args.lr}')
+    log.info(f'    Global Rounds   : {args.epochs}\n')
 
-    print('    Federated parameters:')
+    log.info('    Federated parameters:')
     if args.iid:
-        print('    IID')
+        log.info('    IID')
     else:
-        print('    Non-IID')
-    print(f'    Fraction of users  : {args.frac}')
-    print(f'    Local Batch size   : {args.local_bs}')
-    print(f'    Local Epochs       : {args.local_ep}\n')
-    return
+        log.info('    Non-IID')
+    log.info(f'    Fraction of users  : {args.frac}')
+    log.info(f'    Local Batch size   : {args.local_bs}')
+    log.info(f'    Local Epochs       : {args.local_ep}\n')
+
+
+
+def set_logger(log_file_path="D:/Git/fedatt-main/logs/", file_name=""):
+    import logging
+
+    # 创建一个 logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)  # 设置日志级别
+
+    # 创建一个处理器，用于将日志输出到控制台
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)  # 设置控制台日志级别
+
+    # 创建一个处理器，用于将日志输出到文件
+
+    file_handler = logging.FileHandler(log_file_path+file_name)
+    file_handler.setLevel(logging.DEBUG)  # 设置文件日志级别
+
+    # 创建一个格式化器，用于设置日志的格式
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    # 将处理器添加到 logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    # 示例日志
+    # logger.debug('This is a debug message')
+    # logger.info('This is an info message')
+    # logger.warning('This is a warning message')
+    # logger.error('This is an error message')
+    # logger.critical('This is a critical message')
+    return logger
+
+def set_seed(args):
+    '''
+        set global seed
+    '''
+
+    if args.gpu != -1:
+        torch.cuda.set_device(args.gpu)
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+    os.environ['PYTHONHASHSEED'] = str(args.seed)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+    random.seed(args.seed)
+
+    torch.backends.cudnn.deterministic = True

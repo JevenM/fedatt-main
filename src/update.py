@@ -21,15 +21,18 @@ class DatasetSplit(Dataset):
     def __getitem__(self, item):
         image, label = self.dataset[self.idxs[item]]
         return torch.tensor(image), torch.tensor(label)
+        # return image.clone().detach(), label.clone().detach() 
 
 
 class LocalUpdate(object):
-    def __init__(self, args, dataset, idxs, logger):
+    def __init__(self, args, dataset, idxs, logger, device, log):
         self.args = args
         self.logger = logger
+        self.log = log
         self.trainloader, self.validloader, self.testloader = self.train_val_test(
             dataset, list(idxs))
-        self.device = 'cuda' if args.gpu else 'cpu'
+        self.device = device
+        #'cuda' if args.gpu else 'cpu'
         # Default criterion set to NLL loss function
         self.criterion = nn.NLLLoss().to(self.device)
 
@@ -76,7 +79,7 @@ class LocalUpdate(object):
                 optimizer.step()
 
                 if self.args.verbose and (batch_idx % 10 == 0):
-                    print('| Global Round : {} | Local Epoch : {} | [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    self.log.info('| Global Round : {} | Local Epoch : {} | [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
                         global_round, iter, batch_idx * len(images),
                         len(self.trainloader.dataset),
                         100. * batch_idx / len(self.trainloader), loss.item()))
@@ -111,14 +114,14 @@ class LocalUpdate(object):
         return accuracy, loss
 
 
-def test_inference(args, model, test_dataset):
+def test_inference(args, model, test_dataset, device):
     """ Returns the test accuracy and loss.
     """
 
     model.eval()
     loss, total, correct = 0.0, 0.0, 0.0
 
-    device = 'cuda' if args.gpu else 'cpu'
+    # device = 'cuda' if args.gpu else 'cpu'
     criterion = nn.NLLLoss().to(device)
     testloader = DataLoader(test_dataset, batch_size=128,
                             shuffle=False)
