@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from options import args_parser
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import get_dataset, average_weights, exp_details, aggregate_att, set_logger, set_seed
+from utils import aggregate_att11, aggregate_att10, aggregate_att2, aggregate_att3, aggregate_att4, aggregate_att5, aggregate_att6, aggregate_att7, aggregate_att8, aggregate_att9, get_dataset, average_weights, exp_details, aggregate_att, set_logger, set_seed
 
 
 if __name__ == '__main__':
@@ -29,9 +29,9 @@ if __name__ == '__main__':
 
     args = args_parser()
     set_seed(args)
-    event_dir_name = '{}_{}_{}_C{}_iid{}_E{}_B{}'.\
+    event_dir_name = '{}_{}_{}_C{}_iid{}_E{}_B{}_agg{}'.\
         format(args.dataset, args.model, args.epochs, args.frac, args.iid,
-               args.local_ep, args.local_bs)
+               args.local_ep, args.local_bs, args.agg)
 
     comments = str(datetime.now()).split('.')[0].replace(" ", "_").replace(":", "_").replace("-", "_")+'_'+event_dir_name
     # 默认runs下
@@ -81,9 +81,11 @@ if __name__ == '__main__':
     cv_loss, cv_acc = [], []
     print_every = 2
     val_loss_pre, counter = 0, 0
+    global_model_acc = 0.0
 
     for epoch in tqdm(range(args.epochs)):
         local_weights, local_losses = [], []
+        # local_models = []
         log.info(f'\n | Global Training Round : {epoch+1} |\n')
 
         global_model.train()
@@ -93,9 +95,10 @@ if __name__ == '__main__':
         for idx in idxs_users:
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger, device=device, log=log)
-            w, loss = local_model.update_weights(
+            w, loss, l_model = local_model.update_weights(
                 model=copy.deepcopy(global_model), global_round=epoch)
             local_weights.append(copy.deepcopy(w))
+            # local_models.append(copy.deepcopy(l_model))
             local_losses.append(copy.deepcopy(loss))
 
         # update global weights
@@ -103,7 +106,27 @@ if __name__ == '__main__':
             global_weights = average_weights(local_weights)
         elif args.agg == 'att':
             global_weights = aggregate_att(local_weights, copy.deepcopy(global_model).state_dict(), 1)
-
+        elif args.agg == 'att2':
+            global_weights = aggregate_att2(local_weights, copy.deepcopy(global_model).state_dict(), 1)
+            # global_weights = aggregate_att2(local_models, copy.deepcopy(global_model), 1)
+        elif args.agg == 'att3':
+            global_weights = aggregate_att3(local_weights, copy.deepcopy(global_model).state_dict(), 1)
+        elif args.agg == 'att4':
+            global_weights = aggregate_att4(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
+        elif args.agg == 'att5':
+            global_weights = aggregate_att5(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, args.frac)
+        elif args.agg == 'att6':
+            global_weights = aggregate_att6(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, args.frac, (epoch+1)/args.epochs)
+        elif args.agg == 'att7':
+            global_weights = aggregate_att7(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, args.frac, (epoch+1)/args.epochs)
+        elif args.agg == 'att8':
+            global_weights = aggregate_att8(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, args.frac, (epoch+1)/args.epochs)
+        elif args.agg == 'att9':
+            global_weights = aggregate_att9(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
+        elif args.agg == 'att10':
+            global_weights = aggregate_att10(local_weights, copy.deepcopy(global_model).state_dict())
+        elif args.agg == 'att11':
+            global_weights = aggregate_att11(local_weights, copy.deepcopy(global_model).state_dict(), (epoch+1)/args.epochs)
 
         # update global weights
         global_model.load_state_dict(global_weights)
@@ -121,18 +144,19 @@ if __name__ == '__main__':
             list_acc.append(acc)
             list_loss.append(loss)
         train_accuracy.append(sum(list_acc)/len(list_acc))
+        global_model_acc = train_accuracy[-1]
 
         # print global training loss after every 'i' rounds
         if (epoch+1) % print_every == 0:
             log.info(f' \nAvg Training Stats after {epoch+1} global rounds:')
             log.info(f'Training Loss : {np.mean(np.array(train_loss))}')
-            log.info('Train Accuracy: {:.2f}% \n'.format(100*train_accuracy[-1]))
+            log.info('Train Accuracy: {:.2f}% \n'.format(100*global_model_acc))
 
     # Test inference after completion of training
     test_acc, test_loss = test_inference(args, global_model, test_dataset, device)
 
     log.info(f' \n Results after {args.epochs} global rounds of training:')
-    log.info("|---- Avg Train Accuracy: {:.2f}%".format(100*train_accuracy[-1]))
+    log.info("|---- Avg Train Accuracy: {:.2f}%".format(100*global_model_acc))
     log.info("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
 
     end_time = datetime.now()

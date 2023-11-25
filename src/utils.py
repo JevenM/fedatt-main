@@ -19,7 +19,7 @@ def get_dataset(args):
     """
 
     if args.dataset == 'cifar':
-        data_dir = 'data/cifar/'
+        data_dir = 'E:/Doctor1/coding/FGL_FrameWork/data'
         apply_transform = transforms.Compose(
             [transforms.ToTensor(),
              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -87,12 +87,13 @@ def average_weights(w):
     return w_avg
 
 
+# 使用L2距离，距离大的给与大权重
 def aggregate_att(w_clients, w_server, stepsize):
     import copy
     import torch
     import torch.nn.functional as F
-    from scipy import linalg
-    import numpy as np
+    # from scipy import linalg
+    # import numpy as np
     """
     Attentive aggregation
     :param w_clients: list of client model parameters
@@ -103,7 +104,8 @@ def aggregate_att(w_clients, w_server, stepsize):
     :return: updated server model parameters
     """
     w_next = copy.deepcopy(w_server)
-    att, att_mat = {}, {}
+    att = {}
+    # 初始化，归零
     for k in w_server.keys():
         w_next[k] = torch.zeros_like(w_server[k]).cpu()
         att[k] = torch.zeros(len(w_clients)).cpu()
@@ -114,12 +116,413 @@ def aggregate_att(w_clients, w_server, stepsize):
     for k in w_next.keys():
         att[k] = F.softmax(att[k], dim=0)
     for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
         att_weight = torch.zeros_like(w_server[k])
         for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
             att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
         w_next[k] = w_server[k] - torch.mul(att_weight, stepsize)
     return w_next
 
+# ×基于consine相似度，相似度高的给与大权重
+def aggregate_att2(w_clients, w_server, stepsize):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param stepsize: step size for aggregation
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 将张量展平为二维张量
+            flat_w_server = w_server[k].view(-1)
+            flat_w_clients = w_clients[i][k].view(-1)
+            # 计算余弦相似度
+            att[k][i] = F.cosine_similarity(flat_w_server, flat_w_clients, dim=-1)
+    for k in w_next.keys():
+        att[k] = F.softmax(att[k], dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, stepsize)
+    return w_next
+
+# ×基于consine相似度，直接依据相似度大小作为权重聚合模型各个key
+def aggregate_att3(w_clients, w_server, stepsize):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param stepsize: step size for aggregation
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 将张量展平为二维张量
+            flat_w_server = w_server[k].view(-1)
+            flat_w_clients = w_clients[i][k].view(-1)
+            # 计算余弦相似度
+            att[k][i] = F.cosine_similarity(flat_w_server, flat_w_clients, dim=-1)
+    for k in w_next.keys():
+        att[k] = F.softmax(att[k], dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_clients[i][k], att[k][i])
+        w_next[k] = torch.mul(att_weight, stepsize)
+    return w_next
+
+# 基于consine相似度，相似度高的赋予较低权重，根据权重直接聚合模型各个key的差距，在参考全局模型的预测性能来进行更新
+def aggregate_att4(w_clients, w_server, global_model_acc):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 将张量展平为二维张量
+            flat_w_server = w_server[k].view(-1)
+            flat_w_clients = w_clients[i][k].view(-1)
+            # 计算余弦相似度
+            att[k][i] = F.cosine_similarity(flat_w_server, flat_w_clients, dim=-1)
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax((1-att[k])/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, (1-global_model_acc))
+    return w_next
+
+
+# 基于consine相似度，相似度高的赋予较低权重，根据权重直接聚合模型各个key的差距，再参考全局模型的预测性能来进行更新，
+# 最终模型需要考虑采样率，如果采样率很低，那么权重也会受影响
+# TODO 还会受到轮次的影响，一开始的模型肯定不准，性能也比较低，所以如何将此因素也考虑进去？
+def aggregate_att5(w_clients, w_server, global_model_acc, sample_rate):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 将张量展平为二维张量
+            flat_w_server = w_server[k].view(-1)
+            flat_w_clients = w_clients[i][k].view(-1)
+            # 计算余弦相似度
+            att[k][i] = F.cosine_similarity(flat_w_server, flat_w_clients, dim=-1)
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax((1-att[k])/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, (1-global_model_acc))
+    
+    for k in w_next.keys():
+        global_next[k] = sample_rate*w_next[k] + (1-sample_rate)*avg_g_w[k]
+
+    return global_next
+
+
+# ×基于L2距离算相似度，效果最差，加上ratio
+def aggregate_att6(w_clients, w_server, global_model_acc, sample_rate, ratio):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 计算余弦相似度
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax(att[k]/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, (1-global_model_acc)*ratio)
+    
+    for k in w_next.keys():
+        global_next[k] = sample_rate*w_next[k] + (1-sample_rate)*avg_g_w[k]
+
+    return global_next
+
+# 还是L2距离算相似度，去掉ratio
+def aggregate_att7(w_clients, w_server, global_model_acc, sample_rate, ratio):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax(att[k]/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, 1-global_model_acc)
+    
+    for k in w_next.keys():
+        global_next[k] = sample_rate*w_next[k] + (1-sample_rate)*avg_g_w[k]
+
+    return global_next
+
+# ×还是L2距离算相似度，去掉sample_rate，替换为ratio，效果最差
+def aggregate_att8(w_clients, w_server, global_model_acc, sample_rate, ratio):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 计算余弦相似度
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax(att[k]/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, 1-global_model_acc)
+    
+    for k in w_next.keys():
+        global_next[k] = ratio*w_next[k] + (1-ratio)*avg_g_w[k]
+
+    return global_next
+
+# 还是L2距离算相似度
+def aggregate_att9(w_clients, w_server, global_model_acc):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax(att[k]/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, 1-global_model_acc)
+
+    return w_next
+
+# 还是L2距离算相似度，去掉global_model_acc
+def aggregate_att10(w_clients, w_server):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax(att[k]/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, 1)
+
+    return w_next
+
+# 还是L2距离算相似度，加上平均模型融合
+def aggregate_att11(w_clients, w_server, ratio):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax(att[k]/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, 1)
+    for k in w_next.keys():
+        global_next[k] = ratio*w_next[k] + (1-ratio)*avg_g_w[k]
+    return w_next
 
 def exp_details(args, log):
     log.info('\nExperimental details:')
@@ -187,5 +590,6 @@ def set_seed(args):
         torch.cuda.manual_seed(args.seed)
         torch.cuda.manual_seed_all(args.seed)
     random.seed(args.seed)
-
+    # 禁用 cuDNN 自动调整策略，并启用确定性算法
+    torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True

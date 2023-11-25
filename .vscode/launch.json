@@ -4,13 +4,44 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: 当前文件",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": true,
+            "args": [
+                "--verbose",
+                "1",
+                "--agg",
+                "att2",
+                "--model",
+                "cnn",
+                "--dataset",
+                "cifar",
+                "--gpu",
+                "0",
+                "--iid",
+                "0",
+                "--epoch",
+                "1"
+                // "--num_users",
+                // "20",
+                // "--num_rounds",
+                // "100",
+                // "--model",
+                // "resnet18",
+                // "--dataset",
+                // "Mnist",
+                // "--lr",
+                // "0.01",
+                // "--optimizer",
+                // "SGD",
+                // "--mode",
+                // "task_heter",
+                // "--iid"
         }
     ]
 }

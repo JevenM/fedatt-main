@@ -36,13 +36,37 @@ Federated experiment involves training a global model using many local models.
 
 ### Results
 epoch: 10
-
 Dataset: MNIST
+frac: 0.1
+Non-IID (equal): NIE
+| Model | IID-Atte | IID-Atte2| IID-Atte5|IID-Avg    |NIE-Atte  |NIE-Atte2 |NIE-Atte5 | NIE-Avg |
+| ----- | -----    | ---      |---       |---        |----      | ---      |---       | ---     |
+|  MLP  |     -    |          |          |           |    -     |          |          |         |
+|  CNN  |  96.93%  |**97.10%**|97.00%    |  97.01%   | 81.54%   | 82.62%   |**82.63%**| 82.48%  |
 
-| Model |    IID-Atte   | Non-IID (equal)-Atte| IID-Avg | Non-IID (equal)-Avg |
-| ----- | -----    |----            | ---  | --- |
-|  MLP  |     -    |     -          |      |     |
-|  CNN  |  97.41%  |     87.10%     |   97.20   |   78.67%  |
+epoch: 10
+Dataset: Cifar10
+frac: 0.1
+Non-IID (equal): NIE
+| Model | IID-Atte | IID-Atte2 |IID-Atte5 |IID-Avg| NIE-Atte |NIE-Atte2 |NIE-Atte5 |NIE-Atte3 |NIE-Avg  |
+| ----- | -----    |---        |---       |---    |----      |---       |---       |---       | ---     |
+|  MLP  |     -    |           |          |       |    -     |          |          |          |         |
+|  CNN  |  45.84%  | 46.15%    |**46.47%**|46.21% |**28.28%**| 26.44%   |  26.44%  |26.65%    | 27.19%  |
+
+epoch: 10
+frac: 0.3
+
+
+
+epoch: 50
+Dataset: Cifar10
+frac: 0.1
+Non-IID (equal): NIE
+| Model |  IID-Avg | IID-Atte | IID-Atte2 |IID-Atte3 |IID-Atte4|IID-Atte5  | NIE-Atte |NIE-Atte2 |NIE-Atte3 |NIE-Atte4 |NIE-Atte5| NIE-Avg   |
+| ----- | ---      | -----    | ---       |---       |---      |---        |----      |---       |---       | ---      | ---     |---        |
+|  MLP  |          | -        |           |          |         |           |-         |          |          |          |         |           |
+|  CNN  |  48.52%  |  48.34%  |  49.03%   |  49.35%  |  49.18% |**49.77%** |**38.28%**| 37.78%   |37.88%    |  37.92%  | 38.20%  | **38.28%**|
+
 
 
 * To run the federated experiment with CIFAR on CNN (IID, Aggregate: Fedavg):
