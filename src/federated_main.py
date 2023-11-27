@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Python version: 3.6
+# Python version: 3.8
 
 
 from datetime import datetime
@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from options import args_parser
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import aggregate_att11, aggregate_att10, aggregate_att2, aggregate_att3, aggregate_att4, aggregate_att5, aggregate_att6, aggregate_att7, aggregate_att8, aggregate_att9, get_dataset, average_weights, exp_details, aggregate_att, set_logger, set_seed
+from utils import aggregate_att16, aggregate_att11, aggregate_att10, aggregate_att12, aggregate_att13, aggregate_att14, aggregate_att15, aggregate_att2, aggregate_att3, aggregate_att4, aggregate_att5, aggregate_att6, aggregate_att7, aggregate_att8, aggregate_att9, get_dataset, average_weights, exp_details, aggregate_att, set_logger, set_seed
 
 
 if __name__ == '__main__':
@@ -62,8 +62,8 @@ if __name__ == '__main__':
         len_in = 1
         for x in img_size:
             len_in *= x
-            global_model = MLP(dim_in=len_in, dim_hidden=64,
-                               dim_out=args.num_classes)
+        global_model = MLP(dim_in=len_in, dim_hidden=64,
+                           dim_out=args.num_classes)
     else:
         exit('Error: unrecognized model')
 
@@ -127,7 +127,16 @@ if __name__ == '__main__':
             global_weights = aggregate_att10(local_weights, copy.deepcopy(global_model).state_dict())
         elif args.agg == 'att11':
             global_weights = aggregate_att11(local_weights, copy.deepcopy(global_model).state_dict(), (epoch+1)/args.epochs)
-
+        elif args.agg == 'att12':
+            global_weights = aggregate_att12(local_weights, copy.deepcopy(global_model).state_dict(), (epoch+1)/args.epochs)
+        elif args.agg == 'att13':
+            global_weights = aggregate_att13(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
+        elif args.agg == 'att14':
+            global_weights = aggregate_att14(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
+        elif args.agg == 'att15':
+            global_weights = aggregate_att15(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
+        elif args.agg == 'att16':
+            global_weights = aggregate_att16(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, (epoch+1)/args.epochs)
         # update global weights
         global_model.load_state_dict(global_weights)
 
