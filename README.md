@@ -227,7 +227,7 @@ Non-IID (equal): NIE
 |  CNN  | 38.28%   |38.28%    | 37.78%    |37.88%    |  37.92% | 38.20%    |  38.44%  |  37.57%  | 38.59%   |**41.54%**|
 
 
-经过综合对比，选择16。
+经过综合对比，选择14/16。
 
 * To run the federated experiment with CIFAR on CNN (IID, Aggregate: Fedavg):
 ```
@@ -314,14 +314,18 @@ Federated parameters (default values):
 * ```Local Epochs      (E)```: 10 
 * ```Optimizer            ```: SGD 
 * ```Learning Rate        ```: 0.01
-* ```Aggregation          ```: FedAvg <br />
+
 
 ```Table 2:``` Test accuracy after training for 10 global epochs with:
 
-| Model |    IID   | Non-IID (equal)|
-| ----- | -----    |----            |
-|  MLP  |  88.38%  |     73.49%     |
-|  CNN  |  97.01%  |     82.48%     |
+| Aggregation | Model |    IID   | Non-IID (equal)|
+| ---         | ----- | -----    |----            |
+|Att16        |  MLP  |  91.11%  |     71.42%     |
+|Att14        |  MLP  |  91.20%  |     73.23%     |
+|Atte         |  MLP  |  91.22%  |     71.74%     |
+|Att11        |  MLP  |          |                |
+|FedAvg       |  MLP  |  91.20%  |     73.28%     |
+
 
 
 ## Further Readings

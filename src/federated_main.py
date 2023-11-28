@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Python version: 3.8
-
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 from datetime import datetime
 import os
