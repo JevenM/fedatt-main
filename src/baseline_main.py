@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from utils import get_dataset, set_logger, set_seed
 from options import args_parser
 from update import test_inference
-from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
+from models import MLP, CNNCifar100, CNNMnist, CNNFashion_Mnist, CNNCifar
 from datetime import datetime
 
 if __name__ == '__main__':
@@ -37,8 +37,10 @@ if __name__ == '__main__':
             global_model = CNNMnist(args=args)
         elif args.dataset == 'fmnist':
             global_model = CNNFashion_Mnist(args=args)
-        elif args.dataset == 'cifar':
+        elif args.dataset == 'cifar10':
             global_model = CNNCifar(args=args)
+        elif args.dataset == 'cifar100':
+            global_model = CNNCifar100(args=args)
     elif args.model == 'mlp':
         # Multi-layer preceptron
         img_size = train_dataset[0][0].shape
@@ -121,3 +123,4 @@ if __name__ == '__main__':
                                                  args.epochs))
     plt.savefig(loss_file_name)
     log.info(epoch_loss)
+    print(comments)

@@ -25,7 +25,7 @@ class DatasetSplit(Dataset):
 
 
 class LocalUpdate(object):
-    def __init__(self, args, dataset, idxs, logger, device, log):
+    def __init__(self, args, dataset, idxs, logger, device, log, client_id):
         self.args = args
         self.logger = logger
         self.log = log
@@ -35,6 +35,7 @@ class LocalUpdate(object):
         #'cuda' if args.gpu else 'cpu'
         # Default criterion set to NLL loss function
         self.criterion = nn.NLLLoss().to(self.device)
+        self.id = client_id
 
     def train_val_test(self, dataset, idxs):
         """
@@ -78,14 +79,14 @@ class LocalUpdate(object):
                 loss.backward()
                 optimizer.step()
 
-                if self.args.verbose and (batch_idx % 10 == 0):
-                    self.log.info('| Global Round : {} | Local Epoch : {} | [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
-                        global_round, iter, batch_idx * len(images),
+                if self.args.verbose and (batch_idx % 100 == 0):
+                    self.log.info('| {} Global Round : {} | Local Epoch : {} | [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
+                        self.id, global_round, iter, batch_idx * len(images),
                         len(self.trainloader.dataset),
                         100. * batch_idx / len(self.trainloader), loss.item()))
-                self.logger.add_scalar('loss', loss.item())
                 batch_loss.append(loss.item())
             epoch_loss.append(sum(batch_loss)/len(batch_loss))
+            self.logger.add_scalar('Train/loss'+str(self.id), loss.detach().item(), global_round*self.args.local_ep+iter)
 
         return model.state_dict(), sum(epoch_loss) / len(epoch_loss), model
 
@@ -141,4 +142,5 @@ def test_inference(args, model, test_dataset, device):
         total += len(labels)
 
     accuracy = correct/total
+    loss = loss / len(testloader)
     return accuracy, loss

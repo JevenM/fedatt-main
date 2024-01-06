@@ -1,2 +1,9 @@
 .DS_Store
-/MNIST/
+D:/Git/fedatt-main/data/mnist/*
+*.pkl
+save/
+data/
+runs/
+logs/
+*.pyc
+src/__pycache/*

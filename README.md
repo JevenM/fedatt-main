@@ -39,18 +39,19 @@ epoch: 10
 Dataset: MNIST
 frac: 0.1
 Non-IID (equal): NIE
-| Model | IID-Atte | IID-Atte2| IID-Atte5|IID-Atte8|IID-Att10 |IID-11|IID-Atte12| IID-Att14 |IID-Att15 |IID-Att16|IID-Avg |
-| ----- | -----    | ---      |---       |---      |---       |---   |---       |---        |---       |---      |---     |
-|  MLP  |     -    |          |          |         |          |      |          |           |          |         |        |
-|  CNN  |  96.93%  |  97.10%  |97.00%    | 95.80%  |**97.15%**|97.10%|96.25%    |97.12%     |97.12%    |97.12%   |97.01%  |
+| Model | IID-Atte | IID-Att2| IID-Att5|IID-Att8|IID-Att10 |IID-11|IID-Att12| IID-Att14 |IID-Att15 |IID-Att16| IID-Att17|IID-Avg |IID-Att18|IID-Att19|20|
+| ----- | -----    | ---      |---       |---      |---       |---   |---       |---        |---       |---      |---  |---   |---|---|---|
+|  MLP  |     -    |          |          |         |          |      |          |           |          |         |        | || |
+|  CNN  |  96.93%  |  97.10%  |97.00%    | 95.80%  |**97.15%**|97.10%|96.25%    |97.12%     |97.12%    |97.12%   | 97.11%|97.01%|95.73%|95.57%|97.03%|
 
-| Model |NIE-Atte  |NIE-Atte2 |NIE-Atte5 |NIE-Atte8|NIE-10 | NIE-11  |NIE-Atte12| NIE-att14|NIE-att15 |NIE-att16|NIE-Avg |
-| ----- |----      | ---      |---       | ---     |---    |---      |---       | ---      |---       |---      | ---    |
-|  MLP  |          |    -     |          |         |       |         |          |          |          |         |        |
-|  CNN  | 81.54%   | 82.62%   |  82.63%  | 75.86%  | 81.17%| 81.53%  | 71.77%   |**82.89%**|  82.45%  |82.31%   |82.48%  |
+| Model |NIE-Atte  |NIE-Att2 |NIE-Att5 |NIE-Att8|NIE-10 | NIE-11  |NIE-Att12| NIE-att14|NIE-att15 |NIE-att16|NIE-att17|NIE-Avg |NIE-att18|NIE-Att18|20|
+| ----- |----      | ---      |---       | ---     |---    |---      |---       | ---      |---       |---      | ---    | --- |---|---|---|
+|  MLP  |          |    -     |          |         |       |         |          |          |          |         |        ||||
+|  CNN  | 81.54%   | 82.62%   |  82.63%  | 75.86%  | 81.17%| 81.53%  | 71.77%   |**82.89%**|  82.45%  |82.31%   |81.81%|82.48%| 81.28%|68.34%|80.91%|
 
 
 ==轮次太少不具备参考价值==
+
 epoch: 10
 Dataset: Cifar10
 frac: 0.1
@@ -66,7 +67,7 @@ Non-IID (equal): NIE
 
 
 
-
+Cifar10
 epoch: 10
 frac: 0.3
 <style type="text/css">
@@ -211,23 +212,32 @@ frac: 0.3
 </tbody>
 </table>
 <script charset="utf-8">var TGSort=window.TGSort||function(n){"use strict";function r(n){return n?n.length:0}function t(n,t,e,o=0){for(e=r(n);o<e;++o)t(n[o],o)}function e(n){return n.split("").reverse().join("")}function o(n){var e=n[0];return t(n,function(n){for(;!n.startsWith(e);)e=e.substring(0,r(e)-1)}),r(e)}function u(n,r,e=[]){return t(n,function(n){r(n)&&e.push(n)}),e}var a=parseFloat;function i(n,r){return function(t){var e="";return t.replace(n,function(n,t,o){return e=t.replace(r,"")+"."+(o||"").substring(1)}),a(e)}}var s=i(/^(?:\s*)([+-]?(?:\d+)(?:,\d{3})*)(\.\d*)?$/g,/,/g),c=i(/^(?:\s*)([+-]?(?:\d+)(?:\.\d{3})*)(,\d*)?$/g,/\./g);function f(n){var t=a(n);return!isNaN(t)&&r(""+t)+1>=r(n)?t:NaN}function d(n){var e=[],o=n;return t([f,s,c],function(u){var a=[],i=[];t(n,function(n,r){r=u(n),a.push(r),r||i.push(n)}),r(i)<r(o)&&(o=i,e=a)}),r(u(o,function(n){return n==o[0]}))==r(o)?e:[]}function v(n){if("TABLE"==n.nodeName){for(var a=function(r){var e,o,u=[],a=[];return function n(r,e){e(r),t(r.childNodes,function(r){n(r,e)})}(n,function(n){"TR"==(o=n.nodeName)?(e=[],u.push(e),a.push(n)):"TD"!=o&&"TH"!=o||e.push(n)}),[u,a]}(),i=a[0],s=a[1],c=r(i),f=c>1&&r(i[0])<r(i[1])?1:0,v=f+1,p=i[f],h=r(p),l=[],g=[],N=[],m=v;m<c;++m){for(var T=0;T<h;++T){r(g)<h&&g.push([]);var C=i[m][T],L=C.textContent||C.innerText||"";g[T].push(L.trim())}N.push(m-v)}t(p,function(n,t){l[t]=0;var a=n.classList;a.add("tg-sort-header"),n.addEventListener("click",function(){var n=l[t];!function(){for(var n=0;n<h;++n){var r=p[n].classList;r.remove("tg-sort-asc"),r.remove("tg-sort-desc"),l[n]=0}}(),(n=1==n?-1:+!n)&&a.add(n>0?"tg-sort-asc":"tg-sort-desc"),l[t]=n;var i,f=g[t],m=function(r,t){return n*f[r].localeCompare(f[t])||n*(r-t)},T=function(n){var t=d(n);if(!r(t)){var u=o(n),a=o(n.map(e));t=d(n.map(function(n){return n.substring(u,r(n)-a)}))}return t}(f);(r(T)||r(T=r(u(i=f.map(Date.parse),isNaN))?[]:i))&&(m=function(r,t){var e=T[r],o=T[t],u=isNaN(e),a=isNaN(o);return u&&a?0:u?-n:a?n:e>o?n:e<o?-n:n*(r-t)});var C,L=N.slice();L.sort(m);for(var E=v;E<c;++E)(C=s[E].parentNode).removeChild(s[E]);for(E=v;E<c;++E)C.appendChild(s[v+L[E-v]])})})}}n.addEventListener("DOMContentLoaded",function(){for(var t=n.getElementsByClassName("tg"),e=0;e<r(t);++e)try{v(t[e])}catch(n){}})}(document)</script>
-
+接上表格
+NIE-att17: 33.26%
+IID-att17: 47.66%
+NIE-att18: 32.93%
+IID-att18: 47.13%
+NIE-att19: 26.82%
+IID-att19: 43.51%
+IID-att20: 47.18%(10rounds不收敛)48.44%
+NIE-att20: 31.35%(10rounds不收敛)41.71%
 
 epoch: 50
 Dataset: Cifar10
 frac: 0.1
 Non-IID (equal): NIE
-| Model |  IID-Avg | IID-Atte | IID-Atte2 |IID-Atte3 |IID-Atte4|IID-Atte5  |IID-att11 |IID-att14 |NIE-Atte15|NIE-Atte16|
-| ----- | ---      | -----    | ---       |---       |---      |---        |---       |---       |---       |---       |
-|  MLP  |          | -        |           |          |         |           |          |          |          |          |
-|  CNN  |  48.52%  |  48.34%  |  49.03%   |  49.35%  |  49.18% |  49.77%   | 49.26%   |  49.89%  | 49.64%   |**50.20%**|
-| Model | NIE-Avg  | NIE-Atte |NIE-Atte2  |NIE-Atte3 |NIE-Atte4|NIE-Atte5  |NIE-Atte11|NIE-Atte14|NIE-Atte15|NIE-Atte16|
-| ----- |----      |---       |---        | ---      | ---     |---        |          |  ---     |---       |---       |
-|  MLP  |-         |          |           |          |         |           |          |          |          |          |
-|  CNN  | 38.28%   |38.28%    | 37.78%    |37.88%    |  37.92% | 38.20%    |  38.44%  |  37.57%  | 38.59%   |**41.54%**|
+| Model |  IID-Avg | IID-Atte | IID-Atte2 |IID-Atte3 |IID-Atte4|IID-Atte5  |IID-att11 |IID-att14 |IID-Atte15|IID-Atte16|IID-Atte17|IID-Att18|IID-Att19|
+| ----- | ---      | -----    | ---       |---       |---      |---        |---       |---       |---       |---       |---| ---|---|
+|  MLP  |          | -        |           |          |         |           |          |          |          |          | | ||
+|  CNN  |  48.52%  |  48.34%  |  49.03%   |  49.35%  |  49.18% |  49.77%   | 49.26%   |  49.89%  | 49.64%   |**50.20%**| 49.45%|49.40%|49.08%|
+
+| Model | NIE-Avg  | NIE-Atte |NIE-Atte2  |NIE-Atte3 |NIE-Atte4|NIE-Atte5  |NIE-Atte11|NIE-Atte14|NIE-Atte15|NIE-Atte16|NIE-Atte17|NIE-Att18|NIE-Att19|
+| ----- |----      |---       |---        | ---      | ---     |---        |  ---        |  ---     |---       |---       |---| --- |---|
+|  MLP  |-         |          |           |          |         |           |          |          |          |          | | ||
+|  CNN  | 38.28%   |38.28%    | 37.78%    |37.88%    |  37.92% | 38.20%    |  38.44%  |  37.57%  | 38.59% |41.54%|41.97%|43.74%| **43.93%**|
 
 
-经过综合对比，选择14/16。
+经过综合对比，选择14<16<17。
 
 * To run the federated experiment with CIFAR on CNN (IID, Aggregate: Fedavg):
 ```

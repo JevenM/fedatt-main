@@ -16,8 +16,11 @@ from torch.utils.tensorboard import SummaryWriter
 
 from options import args_parser
 from update import LocalUpdate, test_inference
-from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import aggregate_att16, aggregate_att11, aggregate_att10, aggregate_att12, aggregate_att13, aggregate_att14, aggregate_att15, aggregate_att2, aggregate_att3, aggregate_att4, aggregate_att5, aggregate_att6, aggregate_att7, aggregate_att8, aggregate_att9, get_dataset, average_weights, exp_details, aggregate_att, set_logger, set_seed
+from models import MLP, CNNCifar100, CNNMnist, CNNFashion_Mnist, CNNCifar
+from utils import aggregate_att16, aggregate_att11, aggregate_att10, aggregate_att12, aggregate_att13, \
+    aggregate_att14, aggregate_att15, aggregate_att17, aggregate_att18, aggregate_att19, aggregate_att2, aggregate_att20, aggregate_att3, aggregate_att4, \
+aggregate_att5, aggregate_att6, aggregate_att7, aggregate_att8, aggregate_att9, get_dataset, average_weights, exp_details, \
+aggregate_att, set_logger, set_seed
 
 
 if __name__ == '__main__':
@@ -30,8 +33,9 @@ if __name__ == '__main__':
 
     args = args_parser()
     set_seed(args)
-    event_dir_name = '{}_{}_{}_C{}_iid{}_E{}_B{}_agg{}'.\
-        format(args.dataset, args.model, args.epochs, args.frac, args.iid,
+    # 20240103之前的所有学习率都是0.01
+    event_dir_name = '{}_{}_{}_C{}_iid{}_lr{}_E{}_B{}_agg{}'.\
+        format(args.dataset, args.model, args.epochs, args.frac, args.iid, args.lr,
                args.local_ep, args.local_bs, args.agg)
 
     comments = str(datetime.now()).split('.')[0].replace(" ", "_").replace(":", "_").replace("-", "_")+'_'+event_dir_name
@@ -41,6 +45,7 @@ if __name__ == '__main__':
     exp_details(args, log)
     if args.gpu != -1:
         torch.cuda.set_device(args.gpu)
+    log.info(f"is cuda available? {torch.cuda.is_available()}")
     device = 'cuda:'+ str(args.gpu) if args.gpu!=-1 else 'cpu'
     log.info(device)
 
@@ -54,8 +59,11 @@ if __name__ == '__main__':
             global_model = CNNMnist(args=args)
         elif args.dataset == 'fmnist':
             global_model = CNNFashion_Mnist(args=args)
-        elif args.dataset == 'cifar':
+        elif args.dataset == 'cifar10':
             global_model = CNNCifar(args=args)
+        elif args.dataset == 'cifar100':
+            args.num_classes = 100
+            global_model = CNNCifar100(args=args)
 
     elif args.model == 'mlp':
         # Multi-layer preceptron
@@ -78,10 +86,9 @@ if __name__ == '__main__':
 
     # Training
     train_loss, train_accuracy = [], []
-    val_acc_list, net_list = [], []
-    cv_loss, cv_acc = [], []
+    val_loss_list, val_acc_list = [], []
     print_every = 2
-    val_loss_pre, counter = 0, 0
+    best_test_acc = 0.0
     global_model_acc = 0.0
 
     for epoch in tqdm(range(args.epochs)):
@@ -92,10 +99,10 @@ if __name__ == '__main__':
         global_model.train()
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
-
+        log.info(f"selected users: {idxs_users}")
         for idx in idxs_users:
             local_model = LocalUpdate(args=args, dataset=train_dataset,
-                                      idxs=user_groups[idx], logger=logger, device=device, log=log)
+                                      idxs=user_groups[idx], logger=logger, device=device, log=log, client_id=idx)
             w, loss, l_model = local_model.update_weights(
                 model=copy.deepcopy(global_model), global_round=epoch)
             local_weights.append(copy.deepcopy(w))
@@ -106,7 +113,7 @@ if __name__ == '__main__':
         if args.agg == 'avg':
             global_weights = average_weights(local_weights)
         elif args.agg == 'att':
-            global_weights = aggregate_att(local_weights, copy.deepcopy(global_model).state_dict(), 1)
+            global_weights = aggregate_att(local_weights, copy.deepcopy(global_model).state_dict(), 1, args.dataset)
         elif args.agg == 'att2':
             global_weights = aggregate_att2(local_weights, copy.deepcopy(global_model).state_dict(), 1)
             # global_weights = aggregate_att2(local_models, copy.deepcopy(global_model), 1)
@@ -133,11 +140,20 @@ if __name__ == '__main__':
         elif args.agg == 'att13':
             global_weights = aggregate_att13(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
         elif args.agg == 'att14':
-            global_weights = aggregate_att14(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
+            global_weights = aggregate_att14(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, args.dataset)
         elif args.agg == 'att15':
             global_weights = aggregate_att15(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc)
         elif args.agg == 'att16':
-            global_weights = aggregate_att16(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, (epoch+1)/args.epochs)
+            global_weights = aggregate_att16(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, (epoch+1)/args.epochs, args.dataset)
+        elif args.agg == 'att17':
+            global_weights = aggregate_att17(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, args.dataset)
+        elif args.agg == 'att18':
+            global_weights = aggregate_att18(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, (epoch+1)/args.epochs)
+        elif args.agg == 'att19':
+            global_weights = aggregate_att19(local_weights, copy.deepcopy(global_model).state_dict(), (epoch+1)/args.epochs)
+        elif args.agg == 'att20':
+            global_weights = aggregate_att20(local_weights, copy.deepcopy(global_model).state_dict(), global_model_acc, (epoch+1)/args.epochs, args.dataset)
+        
         # update global weights
         global_model.load_state_dict(global_weights)
 
@@ -149,7 +165,7 @@ if __name__ == '__main__':
         global_model.eval()
         for c in range(args.num_users):
             local_model = LocalUpdate(args=args, dataset=train_dataset,
-                                      idxs=user_groups[idx], logger=logger, device=device, log=log)
+                                      idxs=user_groups[c], logger=logger, device=device, log=log, client_id=c)
             acc, loss = local_model.inference(model=global_model)
             list_acc.append(acc)
             list_loss.append(loss)
@@ -162,18 +178,23 @@ if __name__ == '__main__':
             log.info(f'Training Loss : {np.mean(np.array(train_loss))}')
             log.info('Train Accuracy: {:.2f}% \n'.format(100*global_model_acc))
 
-    # Test inference after completion of training
-    test_acc, test_loss = test_inference(args, global_model, test_dataset, device)
-
-    log.info(f' \n Results after {args.epochs} global rounds of training:')
-    log.info("|---- Avg Train Accuracy: {:.2f}%".format(100*global_model_acc))
-    log.info("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
+        # Test inference after completion of training
+        test_acc, test_loss = test_inference(args, global_model, test_dataset, device)
+        val_loss_list.append(test_loss)
+        val_acc_list.append(test_acc)
+        log.info(f' \n Results after {args.epochs} global rounds of training:')
+        log.info("|---- Avg Train Accuracy: {:.2f}%".format(100*global_model_acc))
+        log.info("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
+        if test_acc > best_test_acc:
+            best_test_acc = test_acc
+            log.info("|---- New Best Test Accuracy: {:.2f}%".format(100*test_acc))
 
     end_time = datetime.now()
     h_, remainder_ = divmod((end_time - start_time).seconds, 3600)
     m_, s_ = divmod(remainder_, 60)
     time_str_ = "Time %02d:%02d:%02d" % (h_, m_, s_)
     log.info(f'\n Total Run {time_str_}')
+    log.info("|---- Best Test Accuracy: {:.2f}%".format(100*best_test_acc))
 
     import os
     # 获取当前脚本所在的目录路径
@@ -183,13 +204,13 @@ if __name__ == '__main__':
 
     # Saving the objects train_loss and train_accuracy:
     # 使用相对路径拼接文件路径
-    file_path = 'save/objects/{}_{}_{}_C{}_iid{}_E{}_B{}_agg{}.pkl'.\
-        format(args.dataset, args.model, args.epochs, args.frac, args.iid,
+    file_path = 'save/objects/new/{}_{}_{}_C{}_iid{}_lr{}_E{}_B{}_agg{}.pkl'.\
+        format(args.dataset, args.model, args.epochs, args.frac, args.iid, args.lr,
                args.local_ep, args.local_bs, args.agg)
 
     file_name = os.path.join(parent_directory, file_path)
     with open(file_name, 'wb') as f:
-        pickle.dump([train_loss, train_accuracy], f)
+        pickle.dump([train_loss, train_accuracy, val_loss_list, val_acc_list], f)
 
     # 从 .pkl 文件中读取数据
     with open(file_name, 'rb') as file:
@@ -203,24 +224,48 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     matplotlib.use('Agg')
 
+    x_label = 'Communication Rounds'
     # Plot Loss curve
     plt.figure()
     plt.title('Training Loss vs Communication rounds')
     plt.plot(range(len(train_loss)), train_loss, color='r')
     plt.ylabel('Training loss')
-    plt.xlabel('Communication Rounds')
-    loss_file_name = os.path.join(parent_directory, 'save/fed_{}_{}_{}_C{}_iid{}_E{}_B{}_agg{}_loss.png'.
+    plt.xlabel(x_label)
+    loss_file_name = os.path.join(parent_directory, 'save/newimg/fed_{}_{}_{}_C{}_iid{}_lr{}_E{}_B{}_agg{}_loss_train.png'.
                 format(args.dataset, args.model, args.epochs, args.frac,
-                       args.iid, args.local_ep, args.local_bs, args.agg))
+                       args.iid, args.lr, args.local_ep, args.local_bs, args.agg))
     plt.savefig(loss_file_name)
     
-    # Plot Average Accuracy vs Communication rounds
+    # Plot Average Train Accuracy vs Communication rounds
     plt.figure()
-    plt.title('Average Accuracy vs Communication rounds')
+    plt.title('Average Train Accuracy vs Communication rounds')
     plt.plot(range(len(train_accuracy)), train_accuracy, color='k')
     plt.ylabel('Average Accuracy')
-    plt.xlabel('Communication Rounds')
-    acc_file_name = os.path.join(parent_directory, 'save/fed_{}_{}_{}_C{}_iid{}_E{}_B{}_agg{}_acc.png'.
+    plt.xlabel(x_label)
+    acc_file_name = os.path.join(parent_directory, 'save/newimg/fed_{}_{}_{}_C{}_iid{}_lr{}_E{}_B{}_agg{}_acc_train.png'.
                 format(args.dataset, args.model, args.epochs, args.frac,
-                       args.iid, args.local_ep, args.local_bs, args.agg))
+                       args.iid, args.lr, args.local_ep, args.local_bs, args.agg))
     plt.savefig(acc_file_name)
+
+    # Plot LOSS curve
+    plt.figure()
+    plt.title('Test loss vs Communication rounds')
+    plt.plot(range(len(val_loss_list)), val_loss_list, color='g')
+    plt.ylabel('Testing loss')
+    plt.xlabel(x_label)
+    loss_file_name_t = os.path.join(parent_directory, 'save/newimg/fed_{}_{}_{}_C{}_iid{}_lr{}_E{}_B{}_agg{}_loss_test.png'.
+                format(args.dataset, args.model, args.epochs, args.frac,
+                       args.iid, args.lr, args.local_ep, args.local_bs, args.agg))
+    plt.savefig(loss_file_name_t)
+    
+    # Plot Test Accuracy vs Communication rounds
+    plt.figure()
+    plt.title('Test Accuracy vs Communication rounds')
+    plt.plot(range(len(val_acc_list)), val_acc_list, color='b')
+    plt.ylabel('Test Accuracy')
+    plt.xlabel(x_label)
+    acc_file_name_t = os.path.join(parent_directory, 'save/newimg/fed_{}_{}_{}_C{}_iid{}_lr{}_E{}_B{}_agg{}_acc_test.png'.
+                format(args.dataset, args.model, args.epochs, args.frac,
+                       args.iid, args.lr, args.local_ep, args.local_bs, args.agg))
+    plt.savefig(acc_file_name_t)
+    print(comments)

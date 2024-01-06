@@ -186,6 +186,38 @@ def cifar_noniid(dataset, num_users):
                 (dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]), axis=0)
     return dict_users
 
+def cifar100_noniid(dataset, num_users):
+    """
+    Sample non-I.I.D client data from CIFAR100 dataset
+
+    Args:
+    ---
+    `dataset`: dataset for split
+    `num_users`: total number of users
+
+    Returns:
+    ---
+    """
+
+    # 50,000 training imgs -->  500 imgs/shard X 100 shards
+    num_shards, num_imgs = 200, 250
+    idx_shard = [i for i in range(num_shards)]
+    dict_users = {i: np.array([]) for i in range(num_users)}
+    idxs = np.arange(num_shards*num_imgs, dtype=np.int32)
+    labels = np.array(dataset.targets)
+    # sort labels
+    idxs_labels = np.vstack((idxs, labels))
+    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+    # indexs sorted by class label: 0,1,2,3...99
+    idxs = idxs_labels[0, :]
+    # divide and assign
+    for i in range(num_users):
+        rand_set = set(np.random.choice(idx_shard, 2, replace=False))
+        idx_shard = list(set(idx_shard) - rand_set)
+        for rand in rand_set:
+            dict_users[i] = np.concatenate(
+                (dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]), axis=0)
+    return dict_users
 
 if __name__ == '__main__':
     dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True,

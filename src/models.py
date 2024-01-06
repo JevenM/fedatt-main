@@ -13,7 +13,7 @@ class MLP(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout()
         self.layer_hidden = nn.Linear(dim_hidden, dim_out)
-        self.softmax = nn.Softmax(dim=1)
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
         x = x.view(-1, x.shape[1]*x.shape[-2]*x.shape[-1])
@@ -63,7 +63,7 @@ class CNNFashion_Mnist(nn.Module):
         out = self.layer2(out)
         out = out.view(out.size(0), -1)
         out = self.fc(out)
-        return out
+        return F.log_softmax(out, dim=1)
 
 
 class CNNCifar(nn.Module):
@@ -85,7 +85,39 @@ class CNNCifar(nn.Module):
         x = self.fc3(x)
         return F.log_softmax(x, dim=1)
 
-class modelC(nn.Module):
+class CNNCifar100(nn.Module):
+    def __init__(self, args):
+        super(CNNCifar100, self).__init__()
+        self.conv1 = nn.Conv2d(3, 16, 3, padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(16, 32, 3, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, 3, padding=1)
+        self.conv4 = nn.Conv2d(64, 128, 3, padding=1)
+        self.fc1 = nn.Linear(128 * 2 * 2, 256)
+        self.fc2 = nn.Linear(256, 512)
+        self.fc3 = nn.Linear(512, args.num_classes)
+        self.dropout = nn.Dropout(p=.5)
+        self.weight_keys = [['fc1.weight', 'fc1.bias'],
+                            ['fc2.weight', 'fc2.bias'],
+                            ['fc3.weight', 'fc3.bias'],
+
+                            ['conv3.weight', 'conv3.bias'],
+                            ['conv2.weight', 'conv2.bias'],
+                            ['conv1.weight', 'conv1.bias'],
+                            ]
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))  # 16*16*16
+        x = self.pool(F.relu(self.conv2(x)))  # 8*8*32
+        x = self.pool(F.relu(self.conv3(x)))  # 4*4*64
+        x = self.pool(F.relu(self.conv4(x)))  # 2*2*128
+        x = x.view(-1, 128 * 2 * 2)
+        x = self.dropout(F.relu(self.fc1(x)))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return F.log_softmax(x, dim=1)
+
+class AllConvNet(nn.Module):
     def __init__(self, input_size, n_classes=10, **kwargs):
         super(AllConvNet, self).__init__()
         self.conv1 = nn.Conv2d(input_size, 96, 3, padding=1)

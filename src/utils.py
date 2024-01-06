@@ -8,7 +8,7 @@ import random
 import numpy as np
 import torch
 from torchvision import datasets, transforms
-from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
+from sampling import cifar100_noniid, mnist_iid, mnist_noniid, mnist_noniid_unequal
 from sampling import cifar_iid, cifar_noniid
 
 
@@ -18,9 +18,9 @@ def get_dataset(args):
     the keys are the user index and the values are the corresponding data for
     each of those users.
     """
-
-    if args.dataset == 'cifar':
-        data_dir = 'E:/Doctor1/coding/FGL_FrameWork/data'
+    data_dir = 'E:/Doctor1/coding/FGL_FrameWork/data'
+    if args.dataset == 'cifar10':
+        
         apply_transform = transforms.Compose(
             [transforms.ToTensor(),
              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -43,12 +43,34 @@ def get_dataset(args):
             else:
                 # Chose euqal splits for every user
                 user_groups = cifar_noniid(train_dataset, args.num_users)
+    elif args.dataset == 'cifar100':
+        apply_transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        train_dataset = datasets.CIFAR100(data_dir, train=True, download=True,
+                                       transform=apply_transform)
 
-    elif args.dataset == 'mnist' or 'fmnist':
-        if args.dataset == 'mnist':
-            data_dir = 'data/mnist/'
+        test_dataset = datasets.CIFAR100(data_dir, train=False, download=True,
+                                      transform=apply_transform)
+
+        # sample training data amongst users
+        if args.iid:
+            # Sample IID user data from Mnist
+            user_groups = cifar_iid(train_dataset, args.num_users)
         else:
-            data_dir = 'data/fmnist/'
+            # Sample Non-IID user data from Mnist
+            if args.unequal:
+                # Chose uneuqal splits for every user
+                raise NotImplementedError()
+            else:
+                # Chose euqal splits for every user
+                user_groups = cifar100_noniid(train_dataset, args.num_users)
+
+    elif args.dataset == 'mnist' or args.dataset == 'fmnist':
+        # if args.dataset == 'mnist':
+        #     data_dir = 'data/mnist/'
+        # else:
+        #     data_dir = 'data/fmnist/'
 
         apply_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -89,7 +111,7 @@ def average_weights(w):
 
 
 # 使用L2距离，距离大的给与大权重
-def aggregate_att(w_clients, w_server, stepsize):
+def aggregate_att(w_clients, w_server, stepsize, dataset):
     import copy
     import torch
     import torch.nn.functional as F
@@ -113,7 +135,10 @@ def aggregate_att(w_clients, w_server, stepsize):
     for k in w_next.keys():
         for i in range(0, len(w_clients)):
             # att[k][i] = torch.from_numpy(np.array(linalg.norm(w_server[k]-w_clients[i][k], ord=2)))
-            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+            if dataset == 'fmnist':
+                att[k][i] = torch.norm(w_server[k].cpu().float() - w_clients[i][k].cpu().float(), p=2).item()
+            else:
+                att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
     for k in w_next.keys():
         att[k] = F.softmax(att[k], dim=0)
     for k in w_next.keys():
@@ -121,7 +146,11 @@ def aggregate_att(w_clients, w_server, stepsize):
         att_weight = torch.zeros_like(w_server[k])
         for i in range(0, len(w_clients)):
             # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
-            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+            if dataset == 'fmnist':
+                att_weight = att_weight.float()
+                att_weight += torch.mul(w_server[k].float()-w_clients[i][k].float(), att[k][i])
+            else:
+                att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
         w_next[k] = w_server[k] - torch.mul(att_weight, stepsize)
     return w_next
 
@@ -528,7 +557,7 @@ def aggregate_att11(w_clients, w_server, ratio):
         global_next[k] = ratio*w_next[k] + (1-ratio)*avg_g_w[k]
     return global_next
 
-# 还是L2距离算相似度，不用平均模型，而是上伦次的模型进行融合
+# 还是L2距离算相似度，不用平均模型，而是上伦次的模型进行融合, 不如11
 def aggregate_att12(w_clients, w_server, ratio):
     import copy
     import torch
@@ -568,7 +597,7 @@ def aggregate_att12(w_clients, w_server, ratio):
     return global_next
 
 
-# 还是L2距离算相似度，不用平均模型，而是上伦次的模型进行融合，系数变为准确率
+# 还是L2距离算相似度，不用平均模型，而是上伦次的模型进行融合，系数变为准确率，不如11
 def aggregate_att13(w_clients, w_server, global_model_acc):
     import copy
     import torch
@@ -609,7 +638,7 @@ def aggregate_att13(w_clients, w_server, global_model_acc):
 
 
 # 还是L2距离算相似度，用平均模型融合，系数变为准确率
-def aggregate_att14(w_clients, w_server, global_model_acc):
+def aggregate_att14(w_clients, w_server, global_model_acc, dataset):
     import copy
     import torch
     import torch.nn.functional as F
@@ -632,7 +661,10 @@ def aggregate_att14(w_clients, w_server, global_model_acc):
     for k in w_next.keys():
         for i in range(0, len(w_clients)):
             # 计算L2距离
-            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+            if dataset == 'fmnist':
+                att[k][i] = torch.norm(w_server[k].cpu().float() - w_clients[i][k].cpu().float(), p=2).item()
+            else:
+                att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
     for k in w_next.keys():
         # 计算张量的标准差
         std = F.sigmoid(1/torch.std(att[k]))
@@ -642,7 +674,11 @@ def aggregate_att14(w_clients, w_server, global_model_acc):
         att_weight = torch.zeros_like(w_server[k])
         for i in range(0, len(w_clients)):
             # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
-            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+            if dataset == 'fmnist':
+                att_weight = att_weight.float()
+                att_weight += torch.mul(w_server[k].float()-w_clients[i][k].float(), att[k][i])
+            else:
+                att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
         w_next[k] = w_server[k] - torch.mul(att_weight, 1)
     for k in w_next.keys():
         global_next[k] = (1-global_model_acc)*w_next[k] + global_model_acc*avg_g_w[k]
@@ -691,7 +727,103 @@ def aggregate_att15(w_clients, w_server, global_model_acc):
 
 
 # 基于14，还是L2距离算相似度，步长变为(1-ratio)
-def aggregate_att16(w_clients, w_server, global_model_acc, ratio):
+def aggregate_att16(w_clients, w_server, global_model_acc, ratio, dataset):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 计算L2距离
+            if dataset == 'fmnist':
+                att[k][i] = torch.norm(w_server[k].cpu().float() - w_clients[i][k].cpu().float(), p=2).item()
+            else:
+                att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        std = F.sigmoid(1/torch.std(att[k]))
+        att[k] = F.softmax(att[k]/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            if dataset == 'fmnist':
+                att_weight = att_weight.float()
+                att_weight += torch.mul(w_server[k].float()-w_clients[i][k].float(), att[k][i])
+            else:
+                att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, (1-ratio))
+    for k in w_next.keys():
+        global_next[k] = (1-global_model_acc)*w_next[k] + global_model_acc*avg_g_w[k]
+    return global_next
+
+# 基于14，还是L2距离算相似度，步长变为(1)
+def aggregate_att17(w_clients, w_server, global_model_acc, dataset):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 计算L2距离
+            if dataset == 'fmnist':
+                att[k][i] = torch.norm(w_server[k].cpu().float() - w_clients[i][k].cpu().float(), p=2).item()
+            else:
+                att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 计算张量的标准差
+        normalized_data = F.normalize(att[k], p=2, dim=0)
+        std = torch.std(att[k])
+        att[k] = F.softmax((1-normalized_data)/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            if dataset == 'fmnist':
+                att_weight = att_weight.float()
+                att_weight += torch.mul(w_server[k].float()-w_clients[i][k].float(), att[k][i])
+            else:
+                att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, 1)
+    for k in w_next.keys():
+        global_next[k] = (1-global_model_acc)*w_next[k] + global_model_acc*avg_g_w[k]
+    return global_next
+
+# 还是L2距离算相似度，去掉sample_rate，使用1-ratio作为步长, 基于att8和11修改，
+# 使用了归一化，最后global_model_acc系数不一样, 不如17
+def aggregate_att18(w_clients, w_server, global_model_acc, ratio):
     import copy
     import torch
     import torch.nn.functional as F
@@ -716,9 +848,11 @@ def aggregate_att16(w_clients, w_server, global_model_acc, ratio):
             # 计算L2距离
             att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
     for k in w_next.keys():
+        # 修改: 归一化
+        normalized_data = F.normalize(att[k], p=2, dim=0)
         # 计算张量的标准差
-        std = F.sigmoid(1/torch.std(att[k]))
-        att[k] = F.softmax(att[k]/std, dim=0)
+        std = torch.std(att[k])
+        att[k] = F.softmax((1-normalized_data)/std, dim=0)
     for k in w_next.keys():
         # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
         att_weight = torch.zeros_like(w_server[k])
@@ -726,8 +860,104 @@ def aggregate_att16(w_clients, w_server, global_model_acc, ratio):
             # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
             att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
         w_next[k] = w_server[k] - torch.mul(att_weight, (1-ratio))
+    
     for k in w_next.keys():
+        # 修改
+        global_next[k] = global_model_acc*w_next[k] + (1-global_model_acc)*avg_g_w[k]
+
+    return global_next
+
+# ×基于18修改，不用加权平均global_next
+def aggregate_att19(w_clients, w_server, ratio):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            # 计算L2距离
+            att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    for k in w_next.keys():
+        # 修改: 归一化
+        normalized_data = F.normalize(att[k], p=2, dim=0)
+        # 计算张量的标准差
+        std = torch.std(att[k])
+        att[k] = F.softmax((1-normalized_data)/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, (1-ratio))
+    
+    return w_next
+
+# 还是L2距离算相似度，去掉sample_rate，使用1-ratio作为步长, 基于att18修改，调换最后加权的顺序，
+# 和14比使用了归一化
+def aggregate_att20(w_clients, w_server, global_model_acc, ratio, dataset):
+    import copy
+    import torch
+    import torch.nn.functional as F
+    """
+    Attentive aggregation
+    :param w_clients: list of client model parameters
+    :param w_server: server model parameters
+    :param metric: similarity
+    :param dp: magnitude of randomization
+    :return: updated server model parameters
+    """
+    avg_g_w = average_weights(w_clients)
+    global_next = copy.deepcopy(w_server)
+    w_next = copy.deepcopy(w_server)
+    att = {}
+    # 初始化，归零
+    for k in w_server.keys():
+        w_next[k] = torch.zeros_like(w_server[k]).cpu()
+        att[k] = torch.zeros(len(w_clients)).cpu()
+    for k in w_next.keys():
+        for i in range(0, len(w_clients)):
+            if dataset == 'fmnist':
+                # 计算L2距离
+                att[k][i] = torch.norm(w_server[k].cpu().float() - w_clients[i][k].cpu().float(), p=2).item()
+            else:
+                # 计算L2距离
+                att[k][i] = torch.norm(w_server[k].cpu() - w_clients[i][k].cpu(), p=2).item()
+    
+    for k in w_next.keys():
+        # 修改: 归一化
+        normalized_data = F.normalize(att[k], p=2, dim=0)
+        # 计算张量的标准差
+        std = torch.std(att[k])
+        att[k] = F.softmax((1-normalized_data)/std, dim=0)
+    for k in w_next.keys():
+        # w_server[k].shape = att_weight.shape: torch.size([6,3,5,5])
+        att_weight = torch.zeros_like(w_server[k])
+        for i in range(0, len(w_clients)):
+            # att[k][i]是个值，w_server[k]-w_clients[i][k]: [6,3,5,5]
+            if dataset == 'fmnist':
+                att_weight += torch.mul(w_server[k].float()-w_clients[i][k].float(), att[k][i]).long()
+            else:
+                att_weight += torch.mul(w_server[k]-w_clients[i][k], att[k][i])
+        w_next[k] = w_server[k] - torch.mul(att_weight, (1-ratio))
+    
+    for k in w_next.keys():
+        # 修改
         global_next[k] = (1-global_model_acc)*w_next[k] + global_model_acc*avg_g_w[k]
+
     return global_next
 
 def exp_details(args, log):
