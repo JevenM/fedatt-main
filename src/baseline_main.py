@@ -69,6 +69,8 @@ if __name__ == '__main__':
     trainloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     criterion = torch.nn.NLLLoss().to(device)
     epoch_loss = []
+    epoch_test_acc = []
+    epoch_test_loss = []
 
     for epoch in tqdm(range(args.epochs)):
         batch_loss = []
@@ -92,11 +94,13 @@ if __name__ == '__main__':
         log.info(f'Train loss: {loss_avg}')
         epoch_loss.append(loss_avg)
 
-    # testing
-    test_acc, test_loss = test_inference(args, global_model, test_dataset, device)
-    log.info(f'Results after {args.epochs} rounds of training:')
-    log.info(f'|---- Test on {len(test_dataset)} samples')
-    log.info("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
+        # testing
+        test_acc, test_loss = test_inference(args, global_model, test_dataset, device)
+        log.info(f'Results after {args.epochs} rounds of training:')
+        log.info(f'|---- Test on {len(test_dataset)} samples')
+        log.info("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
+        epoch_test_acc.append(100.0*test_acc)
+        epoch_test_loss.append(test_loss)
     
     end_time = datetime.now()
     h_, remainder_ = divmod((end_time - start_time).seconds, 3600)
@@ -119,8 +123,24 @@ if __name__ == '__main__':
     plt.plot(range(len(epoch_loss)), epoch_loss)
     plt.xlabel('epochs')
     plt.ylabel('Train loss')
-    loss_file_name = os.path.join(parent_directory, 'save/nn_{}_{}_{}.png'.format(args.dataset, args.model,
+    loss_file_name = os.path.join(parent_directory, 'save/nn_{}_{}_{}_train_ls.png'.format(args.dataset, args.model,
                                                  args.epochs))
     plt.savefig(loss_file_name)
     log.info(epoch_loss)
+
+    plt.figure()
+    plt.plot(range(len(epoch_test_loss)), epoch_test_loss)
+    plt.xlabel('epochs')
+    plt.ylabel('Test loss')
+    loss_file_name2 = 'save/nn_{}_{}_{}_{}_test_ls.png'.format(args.dataset, args.model, args.epochs, args.optimizer)
+    plt.savefig(loss_file_name2)
+    log.info(epoch_test_loss)
+
+    plt.figure()
+    plt.plot(range(len(epoch_test_acc)), epoch_test_acc)
+    plt.xlabel('epochs')
+    plt.ylabel('Test acc')
+    loss_file_name3 = 'save/nn_{}_{}_{}_{}_test_acc.png'.format(args.dataset, args.model, args.epochs, args.optimizer)
+    plt.savefig(loss_file_name3)
+    log.info(epoch_test_acc)
     print(comments)
